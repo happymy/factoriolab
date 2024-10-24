@@ -77,8 +77,9 @@ export function getItemMap(
 ): Record<string, AnyItemPrototype | FluidPrototype> {
   return anyItemKeys.reduce(
     (result: Record<string, AnyItemPrototype | FluidPrototype>, key) => {
-      return Object.keys(dataRaw[key]).reduce((result, name) => {
-        result[name] = dataRaw[key][name];
+      const data = dataRaw[key] ?? {};
+      return Object.keys(data).reduce((result, name) => {
+        result[name] = data[name];
         return result;
       }, result);
     },
@@ -145,6 +146,7 @@ export function getLastIngredient(ingredients: ResearchIngredient[]): string {
   return ingredient[0];
 }
 
+const builtIn = new Set(['base', 'elevated-rails', 'quality', 'space-age']);
 export function getVersion(
   modsPath: string,
   factorioPath: string,
@@ -164,7 +166,7 @@ export function getVersion(
   return modList.mods
     .filter((m) => m.enabled)
     .reduce((version: Record<string, string>, mod) => {
-      if (mod.name === 'base') {
+      if (builtIn.has(mod.name)) {
         version[mod.name] = playerData['last-played-version'].game_version;
         return version;
       }

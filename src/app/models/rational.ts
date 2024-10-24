@@ -117,6 +117,15 @@ export class Rational {
     return new Rational(this.p / this.q);
   }
 
+  round(): Rational {
+    if (this.isInteger()) return this;
+
+    const x = this.p % this.q;
+    const y = Number(x) / Number(this.q);
+    if (y >= 0.5) return this.ceil();
+    return this.floor();
+  }
+
   abs(): Rational {
     return new Rational(abs(this.p), this.q);
   }
@@ -125,6 +134,10 @@ export class Rational {
     const num = this.toNumber();
     const result = Math.pow(num, exponent);
     return rational(result);
+  }
+
+  simplify(): Rational {
+    return rational(this.toNumber());
   }
 
   toNumber(): number {

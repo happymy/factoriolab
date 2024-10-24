@@ -5,6 +5,7 @@ import { AdjustedRecipe, Recipe } from '~/models/data/recipe';
 import { Game } from '~/models/enum/game';
 import { ObjectiveType } from '~/models/enum/objective-type';
 import { ObjectiveUnit } from '~/models/enum/objective-unit';
+import { Quality } from '~/models/enum/quality';
 import { flags } from '~/models/flags';
 import { ObjectiveState } from '~/models/objective';
 import { rational } from '~/models/rational';
@@ -59,7 +60,7 @@ describe('RecipeService', () => {
         }),
         Mocks.dataset,
       );
-      expect(result).toHaveSize(1);
+      expect(result).toHaveSize(4);
     });
 
     it('should filter recipe disallowed effects', () => {
@@ -302,6 +303,23 @@ describe('RecipeService', () => {
       ];
       const data = spread(Mocks.adjustedDataset, {
         flags: flags['2.0'],
+        beaconEntities: spread(Mocks.adjustedDataset.beaconEntities, {
+          [ItemId.Beacon]: spread(
+            Mocks.adjustedDataset.beaconEntities[ItemId.Beacon],
+            {
+              profile: [
+                rational(1),
+                rational(0.7071),
+                rational(0.5773),
+                rational(0.5),
+                rational(0.4472),
+                rational(0.4082),
+                rational(0.3779),
+                rational(0.3535),
+              ],
+            },
+          ),
+        }),
         moduleEntities: spread(Mocks.adjustedDataset.moduleEntities, {
           // To verify all factors work in beacons
           [ItemId.SpeedModule]: spread(
@@ -327,12 +345,12 @@ describe('RecipeService', () => {
           RecipeId.SteelChest
         ] as AdjustedRecipe,
         {
-          out: { [ItemId.SteelChest]: rational(973346339n, 199930350n) },
-          time: rational(10662952n, 27441407n),
+          out: { [ItemId.SteelChest]: rational(1217n, 250n) },
+          time: rational(5000n, 12867n),
           drain: rational(5n),
-          consumption: rational(1045321265n, 2665738n),
-          pollution: rational(81563963266427021n, 127910863523592000n),
-          productivity: rational(973346339n, 199930350n),
+          consumption: rational(3921n, 10n),
+          pollution: rational(3187773n, 5000000n),
+          productivity: rational(1217n, 250n),
           produces: new Set(),
           output: {},
         },
@@ -772,10 +790,15 @@ describe('RecipeService', () => {
       expect(result).toEqual(expected);
     });
 
-    it('should add machine productivity', () => {
+    it('should add machine base effects', () => {
       const data = Mocks.getDataset();
-      data.machineEntities[ItemId.AssemblingMachine2].baseProductivity =
-        rational.one;
+      data.machineEntities[ItemId.AssemblingMachine2].baseEffect = {
+        consumption: rational(1n, 2n),
+        pollution: rational(1n, 2n),
+        productivity: rational(1n, 2n),
+        quality: rational(1n, 2n),
+        speed: rational(1n, 2n),
+      };
       const result = service.adjustRecipe(
         RecipeId.CopperCable,
         Mocks.recipesState[RecipeId.CopperCable],
@@ -786,17 +809,63 @@ describe('RecipeService', () => {
       const expected = spread(
         Mocks.dataset.recipeEntities[RecipeId.CopperCable] as AdjustedRecipe,
         {
-          out: { [ItemId.CopperCable]: rational(4n) },
-          time: rational(2n, 3n),
+          out: { [ItemId.CopperCable]: rational(3n) },
+          time: rational(4n, 9n),
           drain: rational(5n),
-          consumption: rational(150n),
-          pollution: rational(1n, 20n),
-          productivity: rational(2n),
+          consumption: rational(225n),
+          pollution: rational(9n, 80n),
+          productivity: rational(3n, 2n),
           produces: new Set(),
           output: {},
         },
       );
       expect(result).toEqual(expected);
+    });
+
+    it('should handle quality', () => {
+      const data = Mocks.getDataset();
+      data.flags = flags.spa;
+      data.moduleEntities[ItemId.SpeedModule3].speed = rational.zero;
+      data.moduleEntities[ItemId.SpeedModule3].quality = rational.one;
+      const recipeSettings = spread(
+        Mocks.recipesStateInitial[RecipeId.FirearmMagazine],
+        { beacons: undefined },
+      );
+      const settings = spread(Mocks.settingsStateInitial, {
+        quality: Quality.Legendary,
+      });
+      const result = service.adjustRecipe(
+        RecipeId.FirearmMagazine,
+        recipeSettings,
+        Mocks.itemsStateInitial,
+        settings,
+        data,
+      );
+      expect(result.out).toEqual({
+        ['firearm-magazine']: rational(3n, 5n),
+        ['firearm-magazine(1)']: rational(6n, 25n),
+        ['firearm-magazine(2)']: rational(12n, 125n),
+        ['firearm-magazine(3)']: rational(24n, 625n),
+        ['firearm-magazine(5)']: rational(16n, 625n),
+      });
+    });
+
+    it('should ignore fluid quality', () => {
+      const data = Mocks.getDataset();
+      data.flags = flags.spa;
+      data.moduleEntities[ItemId.ProductivityModule3].quality = rational.one;
+      data.moduleEntities[ItemId.SpeedModule3].quality = rational.one;
+      const settings = spread(Mocks.settingsStateInitial, {
+        quality: Quality.Legendary,
+      });
+      const result = service.adjustRecipe(
+        RecipeId.BasicOilProcessing,
+        Mocks.recipesStateInitial[RecipeId.BasicOilProcessing],
+        Mocks.itemsStateInitial,
+        settings,
+        data,
+      );
+      expect(Object.keys(result.out).length).toEqual(1);
     });
   });
 
